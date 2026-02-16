@@ -1,4 +1,4 @@
-<!-- COLLECTIONS v0.1.0 -->
+<!-- COLLECTIONS v0.1.1 -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -30,15 +30,22 @@ body {
 .app {
   display: flex;
   height: 100vh;
+  overflow: hidden;
 }
 
 /* Sidebar */
 
 .sidebar {
-  width: 200px;
+  width: 220px;
   border-right: 1px solid var(--divider);
   display: flex;
   flex-direction: column;
+  background: var(--bg);
+  transition: transform 0.2s ease;
+}
+
+.sidebar.hidden {
+  transform: translateX(-100%);
 }
 
 .sidebar-header {
@@ -90,6 +97,19 @@ body {
   padding: 12px;
 }
 
+.mobile-header {
+  display: none;
+}
+
+#toggleSidebarBtn {
+  background: none;
+  border: 1px solid var(--divider);
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--brown);
+}
+
 #listTitle {
   font-size: 14px;
   font-weight: 500;
@@ -110,6 +130,59 @@ body {
   background: transparent;
   color: var(--brown);
 }
+
+/* ===== Tight Mobile Layout ===== */
+
+@media (max-width: 768px) {
+
+  .app {
+    position: relative;
+  }
+
+  .sidebar {
+    position: absolute;
+    width: 180px;
+    height: 100%;
+    z-index: 10;
+    background: var(--bg);
+  }
+
+  .mobile-header {
+    display: block;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 12px;
+  }
+
+  #toggleSidebarBtn {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+
+  .editor {
+    padding: 8px;
+  }
+
+  #listTitle {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  #listContent {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  #listsContainer li {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  #newListBtn {
+    padding: 4px;
+    font-size: 11px;
+  }
+}
 </style>
 </head>
 
@@ -125,6 +198,9 @@ body {
   </aside>
 
   <main class="editor">
+    <div class="mobile-header">
+      <button id="toggleSidebarBtn">Lists</button>
+    </div>
     <input id="listTitle" placeholder="Untitled">
     <textarea id="listContent"></textarea>
   </main>
@@ -138,6 +214,8 @@ const STORAGE_KEY = "collections_v1";
 let lists = [];
 let activeListId = null;
 
+const sidebar = document.querySelector(".sidebar");
+
 /* ---------- Init ---------- */
 
 function init() {
@@ -148,6 +226,10 @@ function init() {
     openList(lists[0].id);
   }
   renderSidebar();
+
+  if (window.innerWidth <= 768) {
+    sidebar.classList.add("hidden");
+  }
 }
 
 /* ---------- Storage ---------- */
@@ -187,6 +269,11 @@ function openList(id) {
 
   document.getElementById("listTitle").value = list.title;
   document.getElementById("listContent").value = list.content;
+
+  if (window.innerWidth <= 768) {
+    sidebar.classList.add("hidden");
+  }
+
   renderSidebar();
 }
 
@@ -206,6 +293,10 @@ function renderSidebar() {
 /* ---------- Bindings ---------- */
 
 document.getElementById("newListBtn").onclick = createList;
+
+document.getElementById("toggleSidebarBtn").onclick = function() {
+  sidebar.classList.toggle("hidden");
+};
 
 document.getElementById("listTitle").oninput = function() {
   const list = lists.find(l => l.id === activeListId);
