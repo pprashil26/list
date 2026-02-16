@@ -1,4 +1,4 @@
-<!-- COLLECTIONS v0.1.1 -->
+<!-- COLLECTIONS v0.1.2 -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -9,10 +9,10 @@
 
 <style>
 :root {
-  --mint: #a8d5ba;
+  --mint-bg: #e8f5ee;
+  --mint-soft: #f2fbf7;
+  --mint-accent: #a8d5ba;
   --brown: #3a2f2a;
-  --bg: #f9f9f6;
-  --divider: #ecece6;
 }
 
 * {
@@ -23,7 +23,7 @@
 }
 
 body {
-  background: var(--bg);
+  background: var(--mint-bg);
   color: var(--brown);
 }
 
@@ -36,12 +36,11 @@ body {
 /* Sidebar */
 
 .sidebar {
-  width: 220px;
-  border-right: 1px solid var(--divider);
+  width: 170px;                     /* narrower */
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  transition: transform 0.2s ease;
+  background: var(--mint-soft);
+  transition: transform 0.15s ease;
 }
 
 .sidebar.hidden {
@@ -49,22 +48,22 @@ body {
 }
 
 .sidebar-header {
-  padding: 10px;
-  border-bottom: 1px solid var(--divider);
+  padding: 6px 6px;                 /* tighter */
 }
 
 #newListBtn {
   width: 100%;
   background: none;
-  border: 1px solid var(--divider);
-  padding: 6px;
+  border: none;                     /* removed border */
+  padding: 4px 0;
   font-size: 12px;
   cursor: pointer;
   color: var(--brown);
+  text-align: left;
 }
 
 #newListBtn:hover {
-  background: var(--mint);
+  color: black;
 }
 
 #listsContainer {
@@ -74,18 +73,20 @@ body {
 }
 
 #listsContainer li {
-  padding: 8px 10px;
+  padding: 5px 6px;                 /* tighter rows */
   font-size: 13px;
   cursor: pointer;
-  border-bottom: 1px solid var(--divider);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #listsContainer li.active {
-  background: var(--mint);
+  background: var(--mint-accent);
 }
 
 #listsContainer li:hover {
-  background: #e6f3ec;
+  background: #dff1e7;
 }
 
 /* Editor */
@@ -94,36 +95,38 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  padding: 8px 10px;                /* reduced padding */
+  background: var(--mint-bg);
 }
 
 .mobile-header {
   display: none;
+  padding-bottom: 4px;
 }
 
 #toggleSidebarBtn {
   background: none;
-  border: 1px solid var(--divider);
-  padding: 4px 8px;
+  border: none;                     /* cleaner */
+  padding: 2px 0;
   font-size: 12px;
   cursor: pointer;
   color: var(--brown);
 }
 
 #listTitle {
-  font-size: 14px;
+  font-size: 14px;                  /* unchanged */
   font-weight: 500;
   border: none;
   outline: none;
-  margin-bottom: 8px;
+  margin-bottom: 4px;               /* tighter */
   background: transparent;
   color: var(--brown);
 }
 
 #listContent {
   flex: 1;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 13px;                  /* unchanged */
+  line-height: 1.35;                /* slightly tighter but readable */
   border: none;
   outline: none;
   resize: none;
@@ -131,7 +134,7 @@ body {
   color: var(--brown);
 }
 
-/* ===== Tight Mobile Layout ===== */
+/* ===== Extreme Compact Mobile ===== */
 
 @media (max-width: 768px) {
 
@@ -141,46 +144,25 @@ body {
 
   .sidebar {
     position: absolute;
-    width: 180px;
+    width: 160px;
     height: 100%;
     z-index: 10;
-    background: var(--bg);
   }
 
   .mobile-header {
     display: block;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--divider);
-    font-size: 12px;
-  }
-
-  #toggleSidebarBtn {
-    padding: 3px 6px;
-    font-size: 11px;
   }
 
   .editor {
-    padding: 8px;
-  }
-
-  #listTitle {
-    font-size: 13px;
-    margin-bottom: 6px;
-  }
-
-  #listContent {
-    font-size: 12px;
-    line-height: 1.35;
+    padding: 6px 8px;
   }
 
   #listsContainer li {
-    padding: 6px 8px;
-    font-size: 12px;
+    padding: 4px 6px;
   }
 
-  #newListBtn {
-    padding: 4px;
-    font-size: 11px;
+  #listTitle {
+    margin-bottom: 3px;
   }
 }
 </style>
@@ -216,7 +198,7 @@ let activeListId = null;
 
 const sidebar = document.querySelector(".sidebar");
 
-/* ---------- Init ---------- */
+/* Init */
 
 function init() {
   load();
@@ -232,7 +214,7 @@ function init() {
   }
 }
 
-/* ---------- Storage ---------- */
+/* Storage */
 
 function load() {
   try {
@@ -247,7 +229,7 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(lists));
 }
 
-/* ---------- List Logic ---------- */
+/* List Logic */
 
 function createList() {
   const newList = {
@@ -290,7 +272,7 @@ function renderSidebar() {
   });
 }
 
-/* ---------- Bindings ---------- */
+/* Bindings */
 
 document.getElementById("newListBtn").onclick = createList;
 
@@ -313,7 +295,7 @@ document.getElementById("listContent").oninput = function() {
   save();
 };
 
-/* ---------- Auto Bullet ---------- */
+/* Auto Bullet */
 
 document.getElementById("listContent").addEventListener("keydown", function(e) {
   if (e.key === "Enter") {
