@@ -3,79 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Collections v2 Minimal</title>
+<title>Collections Tool v2</title>
 <style>
 :root{
   --mint:#dff5ec;
   --brown:#3e2f25;
   --line:#c8e8dc;
+  --highlight:#e0e0d1;
 }
 
-/* Reset */
+/* Reset & base */
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--brown);}
-body{background:var(--mint);display:flex;flex-direction:column;height:100vh;overflow:hidden;font-size:16px;}
+body{background:var(--mint);display:flex;height:100vh;overflow:hidden;font-size:16px;}
+button{cursor:pointer;background:none;border:none;font-family:inherit;font-size:16px;color:var(--brown);}
+input{font-family:inherit;font-size:inherit;color:var(--brown);}
 
 /* Header */
-.header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:6px 8px;
-  border-bottom:1px solid var(--line);
-}
+.header{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--line);}
+.header button{margin-right:6px;}
 
-.header button{
-  font-size:16px;
-  background:none;
-  border:none;
-  cursor:pointer;
-  margin-left:4px;
-}
+/* Layout */
+#container{display:flex;flex:1;overflow:hidden;}
+#sidebar{width:220px;border-right:1px solid var(--line);background:rgba(255,255,255,0.05);flex-shrink:0;display:flex;flex-direction:column;transition:transform 0.2s ease;}
+#sidebar.hidden{transform:translateX(-100%);}
+#sidebar h3{padding:8px;font-size:14px;border-bottom:1px solid var(--line);}
+#sidebar .listItem{display:flex;align-items:center;padding:4px 8px;cursor:pointer;font-size:14px;margin-bottom:2px;border-radius:4px;}
+#sidebar .listItem.selected{background:var(--highlight);}
+#sidebar .listItem span.name{flex:1;min-width:0;}
+#sidebar .listItem span.delete{margin-left:4px;font-size:14px;cursor:pointer;}
+#sidebar .listItem select{font-size:14px;margin-left:4px;}
 
-/* List titles bar */
-#titlesBar{
-  display:flex;
-  overflow-x:auto;
-  padding:4px 6px;
-  border-bottom:1px solid var(--line);
-  flex-wrap: nowrap;
-}
-
-.listTitle{
-  display:flex;
-  align-items:center;
-  padding:4px 6px;
-  margin-right:4px;
-  background:rgba(255,255,255,0.1);
-  border-radius:4px;
-  cursor:pointer;
-  font-size:14px;
-}
-
-.listTitle.selected{background:rgba(62,47,37,0.1);}
-
-.listTitle span.titleText{margin-right:4px;}
-.listTitle span.delete{font-size:14px;margin-left:4px;cursor:pointer;}
-.listTitle select{font-size:14px;margin-left:2px;}
-
-/* Editor textarea */
-#editor{
-  flex:1;
-  border:none;
-  outline:none;
-  resize:none;
-  padding:8px;
-  font-family:monospace;
-  font-size:16px;
-  line-height:1.4;
-  background:none;
-}
+/* Editor */
+#editor{flex:1;padding:8px;font-family:monospace;font-size:16px;line-height:1.4;border:none;outline:none;resize:none;background:none;overflow:hidden;}
 
 /* Mobile adjustments */
 @media(max-width:768px){
+  #sidebar{position:absolute;height:100%;z-index:10;top:0;left:0;}
   body{font-size:14px;}
-  .header button, .listTitle select{font-size:14px;}
-  #editor{padding:6px; line-height:1.3;}
+  #editor{padding:6px;line-height:1.3;}
 }
 </style>
 </head>
@@ -84,88 +49,84 @@ body{background:var(--mint);display:flex;flex-direction:column;height:100vh;over
 <div class="header">
   <div>
     <button onclick="addList()">+ Add List</button>
-    <button onclick="toggleTitlesBar()">Show/Hide Titles</button>
+    <button onclick="toggleSidebar()">☰</button>
   </div>
 </div>
 
-<div id="titlesBar"></div>
-
-<textarea id="editor" placeholder="Select a list to start typing..."></textarea>
+<div id="container">
+  <div id="sidebar"></div>
+  <textarea id="editor" placeholder="Select a list to start typing..."></textarea>
+</div>
 
 <script>
-// Data storage
+// Data
 let lists = JSON.parse(localStorage.getItem("collections_v2")) || [];
-let selectedListId = lists.length>0 ? lists[0].id : null;
-let titlesVisible = true;
+let selectedListId = lists.length ? lists[0].id : null;
+let sidebarVisible = true;
 
-// Save to localStorage
+// Save
 function save(){ localStorage.setItem("collections_v2", JSON.stringify(lists)); }
 
-// Toggle titles bar
-function toggleTitlesBar(){
-  titlesVisible=!titlesVisible;
-  document.getElementById("titlesBar").style.display=titlesVisible?"flex":"none";
+// Sidebar toggle
+function toggleSidebar(){
+  sidebarVisible=!sidebarVisible;
+  document.getElementById("sidebar").classList.toggle("hidden", !sidebarVisible);
 }
 
-// Add new list
+// Add list
 function addList(){
-  const id=Date.now().toString();
-  lists.push({id,title:"New List",bullet:"dot",content:""});
+  const name = prompt("Enter list name:","New List");
+  if(!name) return;
+  const id = Date.now().toString();
+  lists.push({id,title:name,bullet:"dot",content:""});
   selectedListId=id;
-  save();
-  render();
+  save(); render();
 }
 
 // Delete list
-function deleteList(id){ 
-  lists = lists.filter(l=>l.id!==id); 
-  if(selectedListId===id) selectedListId=lists.length>0?lists[0].id:null;
-  save();
-  render();
+function deleteList(id){
+  lists = lists.filter(l=>l.id!==id);
+  if(selectedListId===id) selectedListId=lists.length?lists[0].id:null;
+  save(); render();
 }
 
-// Render all
-function render(){
-  const titlesBar=document.getElementById("titlesBar");
-  titlesBar.innerHTML="";
-  lists.forEach(list=>{
-    const titleDiv=document.createElement("div");
-    titleDiv.className="listTitle"+(list.id===selectedListId?" selected":"");
+// Select list
+function selectList(id){ selectedListId=id; render(); }
 
-    // Title editable
-    const titleText=document.createElement("span");
-    titleText.className="titleText";
-    titleText.contentEditable=true;
-    titleText.innerText=list.title;
-    titleText.addEventListener("input",()=>{ list.title=titleText.innerText; save(); });
+// Render sidebar
+function renderSidebar(){
+  const sidebar = document.getElementById("sidebar");
+  sidebar.innerHTML="<h3>Lists</h3>";
+  lists.forEach(list=>{
+    const div=document.createElement("div");
+    div.className="listItem"+(list.id===selectedListId?" selected":"");
+
+    // Name
+    const nameSpan=document.createElement("span");
+    nameSpan.className="name"; nameSpan.innerText=list.title;
+    nameSpan.contentEditable=true;
+    nameSpan.addEventListener("input",()=>{ list.title=nameSpan.innerText; save(); });
 
     // Bullet type
-    const bulletSelect=document.createElement("select");
+    const select=document.createElement("select");
     ["dot","dash","number"].forEach(type=>{
       const opt=document.createElement("option"); opt.value=type; opt.innerText=type;
       if(list.bullet===type) opt.selected=true;
-      bulletSelect.appendChild(opt);
+      select.appendChild(opt);
     });
-    bulletSelect.addEventListener("change",()=>{ list.bullet=bulletSelect.value; save(); });
+    select.addEventListener("change",()=>{ list.bullet=select.value; save(); });
 
-    // Delete icon
-    const deleteSpan=document.createElement("span");
-    deleteSpan.className="delete"; deleteSpan.innerText="×";
-    deleteSpan.onclick=(e)=>{ e.stopPropagation(); deleteList(list.id); };
+    // Delete
+    const delSpan=document.createElement("span"); delSpan.className="delete"; delSpan.innerText="×";
+    delSpan.onclick=(e)=>{ e.stopPropagation(); deleteList(list.id); };
 
-    titleDiv.appendChild(titleText);
-    titleDiv.appendChild(bulletSelect);
-    titleDiv.appendChild(deleteSpan);
-
-    // Click to select
-    titleDiv.onclick=()=>{ selectedListId=list.id; renderEditor(); render(); };
-
-    titlesBar.appendChild(titleDiv);
+    div.appendChild(nameSpan); div.appendChild(select); div.appendChild(delSpan);
+    div.onclick=()=>{ selectList(list.id); };
+    sidebar.appendChild(div);
   });
-  renderEditor();
 }
 
-// Render selected list in editor
+// Render editor
 function renderEditor(){
   const editor=document.getElementById("editor");
   const list=lists.find(l=>l.id===selectedListId);
@@ -180,7 +141,6 @@ editor.addEventListener("input",()=>{
   const list=lists.find(l=>l.id===selectedListId);
   if(list){ list.content=editor.value; save(); }
 });
-
 editor.addEventListener("keydown",(e)=>{
   if(e.key==="Enter"){
     const list=lists.find(l=>l.id===selectedListId);
@@ -200,13 +160,13 @@ editor.addEventListener("keydown",(e)=>{
       const pos=editor.selectionStart;
       editor.value=editor.value.substring(0,pos)+prefix+editor.value.substring(pos);
       editor.selectionStart=editor.selectionEnd=pos+prefix.length;
-      list.content=editor.value;
-      save();
+      list.content=editor.value; save();
     },0);
   }
 });
 
-// Initialize
+// Render all
+function render(){ renderSidebar(); renderEditor(); }
 render();
 </script>
 
