@@ -11,27 +11,28 @@
   --line:#c8e8dc;
 }
 
-*{
-  box-sizing:border-box;
-  margin:0;
-  padding:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
-  font-size:14px;
-  color:var(--brown);
-}
-
-body{
-  display:flex;
-  height:100vh;
-  background:var(--mint);
-}
+/* Reset */
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--brown);}
+body{display:flex;height:100vh;background:var(--mint);overflow:hidden;}
 
 /* SIDEBAR */
 .sidebar{
-  width:140px;
+  width:160px;
+  min-width:120px;
   border-right:1px solid var(--line);
+  display:flex;
+  flex-direction:column;
+  padding:4px;
   overflow-y:auto;
-  padding:4px 4px;
+  flex-shrink:0;
+}
+
+.sidebar button.newList{
+  font-size:12px;
+  margin-bottom:4px;
+  background:none;
+  border:none;
+  cursor:pointer;
 }
 
 .list-item{
@@ -53,6 +54,7 @@ body{
   font-size:12px;
   color:var(--brown);
   cursor:pointer;
+  flex-shrink:0;
   padding-left:6px;
 }
 
@@ -61,6 +63,7 @@ body{
   flex:1;
   display:flex;
   flex-direction:column;
+  overflow:hidden;
 }
 
 .header{
@@ -71,25 +74,31 @@ body{
   border-bottom:1px solid var(--line);
 }
 
-.header-left{
-  display:flex;
-  gap:8px;
-  align-items:center;
+#listTitle{
+  flex:1;
+  min-width:0;
+  border:none;
+  outline:none;
+  font-weight:500;
+  font-size:14px;
 }
 
-.header-left span#styleLabel{
+#styleLabel{
   font-size:12px;
   cursor:pointer;
+  flex-shrink:0;
+  margin-left:8px;
 }
 
 /* TEXTAREA */
-textarea{
+#editor{
   flex:1;
   border:none;
   outline:none;
   resize:none;
   padding:8px;
   line-height:1.4;
+  font-family:monospace;
   background:
     repeating-linear-gradient(
       to bottom,
@@ -97,57 +106,73 @@ textarea{
       transparent 22px,
       var(--line) 23px
     );
-  font-family:monospace;
-  color:var(--brown);
+  overflow-y:auto;
+}
+
+/* MOBILE RESPONSIVENESS */
+@media(max-width:768px){
+  .sidebar{
+    width:120px;
+    min-width:100px;
+  }
+  #listTitle{
+    font-size:13px;
+  }
+  #styleLabel{
+    font-size:11px;
+  }
+  .sidebar button.newList{
+    font-size:11px;
+  }
+  #editor{
+    padding:6px;
+    line-height:1.35;
+  }
 }
 </style>
 </head>
 <body>
 
 <div class="sidebar" id="sidebar">
-  <button onclick="newList()">+ List</button>
+  <button class="newList" onclick="newList()">+ List</button>
 </div>
 
 <div class="main">
   <div class="header">
-    <input id="listTitle" style="flex:1; border:none; outline:none; font-weight:500;" value="">
+    <input id="listTitle" value="">
     <span id="styleLabel">•</span>
   </div>
   <textarea id="editor"></textarea>
 </div>
 
 <script>
-let lists = JSON.parse(localStorage.getItem("collections_v03")) || [];
+let lists = JSON.parse(localStorage.getItem("collections_v031")) || [];
 let activeId = null;
 
-function save(){
-  localStorage.setItem("collections_v03", JSON.stringify(lists));
-}
-
+// Migration for backward compatibility
 function migrate(list){
   if(list.pinned === undefined) list.pinned = false;
   if(!list.listStyle) list.listStyle = "bullet";
   return list;
 }
-
 lists = lists.map(migrate);
 
-function renderSidebar(){
-  const sidebar = document.getElementById("sidebar");
-  // Keep new list button at top
-  sidebar.innerHTML = '<button onclick="newList()">+ List</button>';
+// Save to localStorage
+function save(){ localStorage.setItem("collections_v031", JSON.stringify(lists)); }
 
-  const sorted = [...lists].sort((a,b)=>{
-    if(a.pinned === b.pinned) return 0;
-    return a.pinned ? -1 : 1;
-  });
+// Sidebar render
+function renderSidebar(){
+  const sidebar=document.getElementById("sidebar");
+  sidebar.innerHTML='<button class="newList" onclick="newList()">+ List</button>';
+
+  const sorted=[...lists].sort((a,b)=>b.pinned-a.pinned);
 
   sorted.forEach(list=>{
-    const div = document.createElement("div");
+    const div=document.createElement("div");
     div.className="list-item";
     if(list.id===activeId) div.classList.add("active");
 
-    const nameSpan = document.createElement("span");
+    const nameSpan=document.createElement("span");
     nameSpan.textContent=list.title||"Untitled";
     nameSpan.onclick=()=>{
       activeId=list.id;
@@ -155,14 +180,14 @@ function renderSidebar(){
       renderEditor();
     };
 
-    const delSpan = document.createElement("span");
+    const delSpan=document.createElement("span");
     delSpan.className="delete";
     delSpan.textContent="×";
     delSpan.onclick=(e)=>{
       e.stopPropagation();
-      lists = lists.filter(l=>l.id!==list.id);
-      if(lists.length) activeId=lists[0].id;
-      else newList();
+      lists=lists.filter(l=>l.id!==list.id);
+      activeId=lists.length?lists[0].id:null;
+      if(!activeId) newList();
       save();
       renderSidebar();
       renderEditor();
@@ -174,18 +199,20 @@ function renderSidebar(){
   });
 }
 
+// Editor render
 function renderEditor(){
-  const editor = document.getElementById("editor");
-  const list = lists.find(l=>l.id===activeId);
+  const editor=document.getElementById("editor");
+  const list=lists.find(l=>l.id===activeId);
   if(!list) return;
   editor.value=list.content;
   document.getElementById("listTitle").value=list.title;
   updateStyleLabel();
 }
 
+// Create new list
 function newList(){
-  const id = Date.now().toString();
-  const newItem = {
+  const id=Date.now().toString();
+  const newItem={
     id,
     title:"New List",
     content:"",
@@ -199,6 +226,7 @@ function newList(){
   renderEditor();
 }
 
+// Title edit
 document.getElementById("listTitle").addEventListener("input",function(){
   const list=lists.find(l=>l.id===activeId);
   if(!list) return;
@@ -207,47 +235,42 @@ document.getElementById("listTitle").addEventListener("input",function(){
   renderSidebar();
 });
 
+// Style label
 function updateStyleLabel(){
-  const list = lists.find(l=>l.id===activeId);
-  const lbl = document.getElementById("styleLabel");
-  lbl.textContent = list.listStyle==="bullet"?"•":"1.";
+  const list=lists.find(l=>l.id===activeId);
+  document.getElementById("styleLabel").textContent=list.listStyle==="bullet"?"•":"1.";
 }
-
 document.getElementById("styleLabel").onclick=function(){
   const list=lists.find(l=>l.id===activeId);
   if(!list) return;
-  list.listStyle = list.listStyle==="bullet"?"number":"bullet";
+  list.listStyle=list.listStyle==="bullet"?"number":"bullet";
   save();
   updateStyleLabel();
 };
 
-document.getElementById("editor").addEventListener("input", function(){
+// Editor input
+document.getElementById("editor").addEventListener("input",function(){
   const list=lists.find(l=>l.id===activeId);
   if(!list) return;
   list.content=this.value;
   save();
 });
 
-document.getElementById("editor").addEventListener("keydown", function(e){
+// Auto bullet / number insertion
+document.getElementById("editor").addEventListener("keydown",function(e){
   if(e.key==="Enter"){
     const list=lists.find(l=>l.id===activeId);
     if(!list) return;
-
     const start=this.selectionStart;
     const text=this.value.substring(0,start);
     const lines=text.split("\n");
     const lastLine=lines[lines.length-1];
-
     let prefix="";
-
-    if(list.listStyle==="bullet"){
-      prefix="- ";
-    }else{
+    if(list.listStyle==="bullet") prefix="- ";
+    else{
       const match=lastLine.match(/^(\d+)\./);
-      const next=match?parseInt(match[1])+1:1;
-      prefix=next+". ";
+      prefix=(match?parseInt(match[1])+1:1)+". ";
     }
-
     setTimeout(()=>{
       const pos=this.selectionStart;
       this.value=this.value.substring(0,pos)+prefix+this.value.substring(pos);
@@ -259,11 +282,8 @@ document.getElementById("editor").addEventListener("keydown", function(e){
 });
 
 // Initialize
-if(lists.length){
-  activeId=lists[0].id;
-}else{
-  newList();
-}
+if(lists.length){ activeId=lists[0].id; }
+else{ newList(); }
 renderSidebar();
 renderEditor();
 </script>
