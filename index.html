@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Collections v1 Minimal</title>
+<title>Collections v1</title>
 <style>
 :root{
   --mint:#dff5ec;
   --brown:#3e2f25;
   --line:#c8e8dc;
+  --dot:#3e2f25;
 }
 
 /* Reset */
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--brown);}
-body{display:flex;flex-direction:column;height:100vh;background:var(--mint);overflow:hidden;}
+body{background:var(--mint);display:flex;flex-direction:column;height:100vh;overflow:hidden;font-size:16px;}
 
-/* HEADER */
+/* Header */
 .header{
   display:flex;
   align-items:center;
@@ -24,128 +25,189 @@ body{display:flex;flex-direction:column;height:100vh;background:var(--mint);over
   border-bottom:1px solid var(--line);
 }
 
-#listTitle{
-  flex:1;
-  min-width:0;
-  border:none;
-  outline:none;
-  font-weight:500;
+.header button{
   font-size:16px;
-}
-
-button.icon{
   background:none;
   border:none;
   cursor:pointer;
-  font-size:16px;
   margin-left:4px;
 }
 
-/* TEXTAREA */
-#editor{
+/* Lists container */
+#listsContainer{
   flex:1;
+  overflow-y:auto;
+  padding:4px 8px;
+}
+
+/* Individual list panel */
+.listPanel{
+  border:1px solid var(--line);
+  margin-bottom:6px;
+  border-radius:4px;
+  background:rgba(255,255,255,0.1);
+}
+
+.listHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:4px 6px;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.listHeader span.title{flex:1; min-width:0;}
+.listHeader span.delete{margin-left:6px; font-size:14px; cursor:pointer;}
+.listHeader select{margin-left:6px; font-size:14px;}
+
+/* Editor textarea with dot grid */
+.listEditor{
+  width:100%;
   border:none;
   outline:none;
   resize:none;
-  padding:8px;
-  line-height:1.4;
   font-family:monospace;
-  background:repeating-linear-gradient(to bottom, transparent, transparent 22px, var(--line) 23px);
-  overflow-y:auto;
+  padding:6px;
+  background-image:
+    radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size:16px 16px;
+  line-height:1.4;
+  font-size:16px;
+  min-height:80px;
 }
 
-/* LIST ITEM COMPLETION */
-.completed{
-  text-decoration: line-through;
-  color:rgba(62,47,37,0.6);
-}
+/* Completed item */
+.completed{ text-decoration: line-through; color: rgba(62,47,37,0.6); }
 
-/* MOBILE RESPONSIVENESS */
+/* Compact spacing for mobile */
 @media(max-width:768px){
-  #listTitle{ font-size:14px; }
-  button.icon{ font-size:14px; }
-  #editor{ padding:6px; line-height:1.3; }
+  body{font-size:14px;}
+  .header button, .listHeader select{font-size:14px;}
+  .listEditor{padding:4px; line-height:1.3;}
 }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <input id="listTitle" value="New List">
   <div>
-    <button class="icon" onclick="newItem()">➕</button>
-    <button class="icon" onclick="deleteList()">🗑️</button>
+    <button onclick="newList()">+ Add List</button>
+    <button onclick="toggleAllLists()">Show/Hide All</button>
   </div>
 </div>
 
-<textarea id="editor"></textarea>
+<div id="listsContainer"></div>
 
 <script>
-// Data storage
-let list = {title:"New List", content:[]}; // content array of {text, completed}
+let lists = JSON.parse(localStorage.getItem("collections_v1")) || [];
+let allVisible = true;
 
-// Save/load
-function save(){ localStorage.setItem("collection_v1", JSON.stringify(list)); }
-function load(){ const data=localStorage.getItem("collection_v1"); if(data) list=JSON.parse(data); renderEditor(); }
+// Save to localStorage
+function save(){ localStorage.setItem("collections_v1", JSON.stringify(lists)); }
 
-// Render editor
-function renderEditor(){
-  const editor=document.getElementById("editor");
-  editor.value=list.content.map(item=> (item.completed?"[x] ":"- ")+item.text ).join("\n");
+// Toggle all lists visibility
+function toggleAllLists(){
+  allVisible = !allVisible;
+  renderLists();
 }
 
-// Add new item
-function newItem(){
-  list.content.push({text:"", completed:false});
-  renderEditor();
+// Create new list
+function newList(){
+  const id=Date.now().toString();
+  lists.push({id,title:"New List",bullet:"dot",content:""});
   save();
-  // focus last line
-  const editor=document.getElementById("editor");
-  editor.selectionStart=editor.selectionEnd=editor.value.length;
-  editor.focus();
+  renderLists();
 }
 
 // Delete list
-function deleteList(){
-  if(confirm("Delete this list?")){ list={title:"New List", content:[]}; renderEditor(); save(); }
+function deleteList(id){
+  lists = lists.filter(l=>l.id!==id);
+  save();
+  renderLists();
 }
 
-// Title edit
-document.getElementById("listTitle").addEventListener("input",function(){ list.title=this.value||"New List"; save(); });
+// Render all lists
+function renderLists(){
+  const container=document.getElementById("listsContainer");
+  container.innerHTML="";
+  lists.forEach(list=>{
+    const panel=document.createElement("div");
+    panel.className="listPanel";
 
-// Editor input + completion toggle
-const editor=document.getElementById("editor");
-editor.addEventListener("input",function(){
-  const lines=this.value.split("\n");
-  list.content=lines.map(line=>{
-    let completed=false,text=line;
-    if(line.startsWith("[x] ")){ completed=true; text=line.substring(4); }
-    else if(line.startsWith("- ")) text=line.substring(2);
-    return {text, completed};
+    // Header with title, delete icon, bullet type
+    const header=document.createElement("div");
+    header.className="listHeader";
+
+    const titleSpan=document.createElement("span");
+    titleSpan.className="title";
+    titleSpan.contentEditable=true;
+    titleSpan.innerText=list.title;
+    titleSpan.addEventListener("input",()=>{ list.title=titleSpan.innerText; save(); });
+
+    const bulletSelect=document.createElement("select");
+    ["dot","dash","number"].forEach(type=>{
+      const opt=document.createElement("option"); opt.value=type; opt.innerText=type;
+      if(list.bullet===type) opt.selected=true;
+      bulletSelect.appendChild(opt);
+    });
+    bulletSelect.addEventListener("change",()=>{ list.bullet=bulletSelect.value; save(); renderEditor(listEditor,list); });
+
+    const deleteSpan=document.createElement("span");
+    deleteSpan.className="delete";
+    deleteSpan.innerText="×";
+    deleteSpan.onclick=(e)=>{ e.stopPropagation(); deleteList(list.id); };
+
+    header.appendChild(titleSpan);
+    header.appendChild(bulletSelect);
+    header.appendChild(deleteSpan);
+
+    panel.appendChild(header);
+
+    // Editor
+    const listEditor=document.createElement("textarea");
+    listEditor.className="listEditor";
+    renderEditor(listEditor,list);
+
+    // Auto bullet insertion
+    listEditor.addEventListener("keydown",(e)=>{
+      if(e.key==="Enter"){
+        const start=listEditor.selectionStart;
+        const text=listEditor.value.substring(0,start);
+        const lines=text.split("\n");
+        const last=lines[lines.length-1];
+        let prefix="";
+        if(list.bullet==="dot") prefix="• ";
+        else if(list.bullet==="dash") prefix="- ";
+        else if(list.bullet==="number"){
+          const match=last.match(/^(\d+)\./);
+          prefix=(match?parseInt(match[1])+1:1)+". ";
+        }
+        setTimeout(()=>{
+          const pos=listEditor.selectionStart;
+          listEditor.value=listEditor.value.substring(0,pos)+prefix+listEditor.value.substring(pos);
+          listEditor.selectionStart=listEditor.selectionEnd=pos+prefix.length;
+          list.content=listEditor.value;
+          save();
+        },0);
+      }
+    });
+
+    // Update content on input
+    listEditor.addEventListener("input",()=>{ list.content=listEditor.value; save(); });
+
+    if(allVisible) panel.appendChild(listEditor);
+    container.appendChild(panel);
   });
-  save();
-});
+}
 
-editor.addEventListener("keydown",function(e){
-  if(e.key==="Enter"){
-    // Auto bullet / number
-    const start=this.selectionStart;
-    const text=this.value.substring(0,start);
-    const lines=text.split("\n");
-    const last=lines[lines.length-1];
-    let prefix="- ";
-    if(/^\d+\./.test(last)) prefix=(parseInt(last)+1)+". ";
-    setTimeout(()=>{
-      const pos=this.selectionStart;
-      this.value=this.value.substring(0,pos)+prefix+this.value.substring(pos);
-      this.selectionStart=this.selectionEnd=pos+prefix.length;
-    },0);
-  }
-});
+// Render content inside editor
+function renderEditor(editor,list){
+  editor.value=list.content;
+}
 
 // Initialize
-load();
-renderEditor();
+renderLists();
 </script>
 
 </body>
