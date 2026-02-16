@@ -1,4 +1,4 @@
-<!-- COLLECTIONS v0.1.2 -->
+<!-- COLLECTIONS v0.2.0 -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -36,7 +36,7 @@ body {
 /* Sidebar */
 
 .sidebar {
-  width: 170px;                     /* narrower */
+  width: 170px;
   display: flex;
   flex-direction: column;
   background: var(--mint-soft);
@@ -48,22 +48,26 @@ body {
 }
 
 .sidebar-header {
-  padding: 6px 6px;                 /* tighter */
+  padding: 6px;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
 }
 
 #newListBtn {
-  width: 100%;
   background: none;
-  border: none;                     /* removed border */
-  padding: 4px 0;
+  border: none;
   font-size: 12px;
   cursor: pointer;
   color: var(--brown);
-  text-align: left;
 }
 
-#newListBtn:hover {
-  color: black;
+#pinToggleBtn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--brown);
 }
 
 #listsContainer {
@@ -73,7 +77,7 @@ body {
 }
 
 #listsContainer li {
-  padding: 5px 6px;                 /* tighter rows */
+  padding: 5px 6px;
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
@@ -85,59 +89,72 @@ body {
   background: var(--mint-accent);
 }
 
-#listsContainer li:hover {
-  background: #dff1e7;
-}
-
 /* Editor */
 
 .editor {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 8px 10px;                /* reduced padding */
+  padding: 8px 10px;
   background: var(--mint-bg);
 }
 
 .mobile-header {
   display: none;
   padding-bottom: 4px;
+  font-size: 12px;
 }
 
-#toggleSidebarBtn {
+#toggleSidebarBtn,
+#styleToggleBtn {
   background: none;
-  border: none;                     /* cleaner */
-  padding: 2px 0;
+  border: none;
   font-size: 12px;
   cursor: pointer;
   color: var(--brown);
+  margin-right: 8px;
+}
+
+.editor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
 #listTitle {
-  font-size: 14px;                  /* unchanged */
+  font-size: 14px;
   font-weight: 500;
   border: none;
   outline: none;
-  margin-bottom: 4px;               /* tighter */
   background: transparent;
   color: var(--brown);
+  flex: 1;
 }
+
+/* Lined page */
 
 #listContent {
   flex: 1;
-  font-size: 13px;                  /* unchanged */
-  line-height: 1.35;                /* slightly tighter but readable */
+  font-size: 13px;
+  line-height: 1.35;
   border: none;
   outline: none;
   resize: none;
-  background: transparent;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 1.34em,
+      rgba(58, 47, 42, 0.05) 1.35em
+    );
+  background-attachment: local;
   color: var(--brown);
 }
 
-/* ===== Extreme Compact Mobile ===== */
+/* Mobile */
 
 @media (max-width: 768px) {
-
   .app {
     position: relative;
   }
@@ -156,14 +173,6 @@ body {
   .editor {
     padding: 6px 8px;
   }
-
-  #listsContainer li {
-    padding: 4px 6px;
-  }
-
-  #listTitle {
-    margin-bottom: 3px;
-  }
 }
 </style>
 </head>
@@ -175,6 +184,7 @@ body {
   <aside class="sidebar">
     <div class="sidebar-header">
       <button id="newListBtn">+ New</button>
+      <button id="pinToggleBtn">Pin</button>
     </div>
     <ul id="listsContainer"></ul>
   </aside>
@@ -183,7 +193,12 @@ body {
     <div class="mobile-header">
       <button id="toggleSidebarBtn">Lists</button>
     </div>
-    <input id="listTitle" placeholder="Untitled">
+
+    <div class="editor-top">
+      <input id="listTitle" placeholder="Untitled">
+      <button id="styleToggleBtn">•</button>
+    </div>
+
     <textarea id="listContent"></textarea>
   </main>
 
@@ -192,7 +207,7 @@ body {
 <script>
 (function() {
 
-const STORAGE_KEY = "collections_v1";
+const STORAGE_KEY = "collections_v2";
 let lists = [];
 let activeListId = null;
 
@@ -219,7 +234,13 @@ function init() {
 function load() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) lists = JSON.parse(saved);
+    if (saved) {
+      lists = JSON.parse(saved);
+      lists.forEach(l => {
+        if (l.pinned === undefined) l.pinned = false;
+        if (!l.listStyle) l.listStyle = "bullet";
+      });
+    }
   } catch (e) {
     lists = [];
   }
@@ -235,7 +256,9 @@ function createList() {
   const newList = {
     id: Date.now().toString(),
     title: "Untitled",
-    content: "- "
+    content: "- ",
+    pinned: false,
+    listStyle: "bullet"
   };
   lists.push(newList);
   activeListId = newList.id;
@@ -251,6 +274,8 @@ function openList(id) {
 
   document.getElementById("listTitle").value = list.title;
   document.getElementById("listContent").value = list.content;
+  updateStyleToggle();
+  updatePinLabel();
 
   if (window.innerWidth <= 768) {
     sidebar.classList.add("hidden");
@@ -263,7 +288,9 @@ function renderSidebar() {
   const container = document.getElementById("listsContainer");
   container.innerHTML = "";
 
-  lists.forEach(list => {
+  const sorted = [...lists].sort((a,b) => b.pinned - a.pinned);
+
+  sorted.forEach(list => {
     const li = document.createElement("li");
     li.textContent = list.title || "Untitled";
     if (list.id === activeListId) li.classList.add("active");
@@ -271,6 +298,39 @@ function renderSidebar() {
     container.appendChild(li);
   });
 }
+
+/* Pin */
+
+function updatePinLabel() {
+  const list = lists.find(l => l.id === activeListId);
+  document.getElementById("pinToggleBtn").textContent =
+    list && list.pinned ? "Unpin" : "Pin";
+}
+
+document.getElementById("pinToggleBtn").onclick = function() {
+  const list = lists.find(l => l.id === activeListId);
+  if (!list) return;
+  list.pinned = !list.pinned;
+  save();
+  renderSidebar();
+  updatePinLabel();
+};
+
+/* Style Toggle */
+
+function updateStyleToggle() {
+  const list = lists.find(l => l.id === activeListId);
+  document.getElementById("styleToggleBtn").textContent =
+    list && list.listStyle === "number" ? "1." : "•";
+}
+
+document.getElementById("styleToggleBtn").onclick = function() {
+  const list = lists.find(l => l.id === activeListId);
+  if (!list) return;
+  list.listStyle = list.listStyle === "bullet" ? "number" : "bullet";
+  save();
+  updateStyleToggle();
+};
 
 /* Bindings */
 
@@ -295,27 +355,47 @@ document.getElementById("listContent").oninput = function() {
   save();
 };
 
-/* Auto Bullet */
+/* Auto Insert Logic */
 
 document.getElementById("listContent").addEventListener("keydown", function(e) {
   if (e.key === "Enter") {
+    const list = lists.find(l => l.id === activeListId);
+    if (!list) return;
+
     const start = this.selectionStart;
     const text = this.value;
     const lineStart = text.lastIndexOf("\n", start - 1) + 1;
     const currentLine = text.substring(lineStart, start);
 
-    if (currentLine.startsWith("- ")) {
+    if (list.listStyle === "bullet" && currentLine.startsWith("- ")) {
       e.preventDefault();
-      const insert = "\n- ";
-      this.value = text.slice(0, start) + insert + text.slice(start);
-      this.selectionStart = this.selectionEnd = start + insert.length;
+      insertAtCursor("\n- ");
+    }
 
-      const list = lists.find(l => l.id === activeListId);
-      list.content = this.value;
-      save();
+    if (list.listStyle === "number") {
+      const match = currentLine.match(/^(\d+)\.\s/);
+      if (match) {
+        e.preventDefault();
+        const next = parseInt(match[1]) + 1;
+        insertAtCursor("\n" + next + ". ");
+      }
     }
   }
 });
+
+function insertAtCursor(textToInsert) {
+  const textarea = document.getElementById("listContent");
+  const start = textarea.selectionStart;
+  const text = textarea.value;
+
+  textarea.value = text.slice(0, start) + textToInsert + text.slice(start);
+  textarea.selectionStart = textarea.selectionEnd =
+    start + textToInsert.length;
+
+  const list = lists.find(l => l.id === activeListId);
+  list.content = textarea.value;
+  save();
+}
 
 init();
 
