@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Collections</title>
+<title>Collections v1 Minimal</title>
 <style>
 :root{
   --mint:#dff5ec;
@@ -13,65 +13,14 @@
 
 /* Reset */
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--brown);}
-body{display:flex;height:100vh;background:var(--mint);overflow:hidden;}
+body{display:flex;flex-direction:column;height:100vh;background:var(--mint);overflow:hidden;}
 
-/* SIDEBAR */
-.sidebar{
-  width:160px;
-  min-width:120px;
-  border-right:1px solid var(--line);
-  display:flex;
-  flex-direction:column;
-  padding:4px;
-  overflow-y:auto;
-  flex-shrink:0;
-}
-
-.sidebar button.newList{
-  font-size:12px;
-  margin-bottom:4px;
-  background:none;
-  border:none;
-  cursor:pointer;
-}
-
-.list-item{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:3px 4px;
-  cursor:pointer;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  border-radius:2px;
-}
-
-.list-item:hover{ background: rgba(60,40,30,0.05); }
-.list-item.active{ background: rgba(60,40,30,0.1); }
-.list-item:focus{ outline:1px dotted var(--brown); }
-
-.list-item span.delete{
-  font-size:12px;
-  color:var(--brown);
-  cursor:pointer;
-  flex-shrink:0;
-  padding-left:6px;
-}
-
-/* MAIN */
-.main{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-}
-
+/* HEADER */
 .header{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:4px 8px;
+  padding:6px 8px;
   border-bottom:1px solid var(--line);
 }
 
@@ -81,14 +30,15 @@ body{display:flex;height:100vh;background:var(--mint);overflow:hidden;}
   border:none;
   outline:none;
   font-weight:500;
-  font-size:14px;
+  font-size:16px;
 }
 
-#styleLabel{
-  font-size:12px;
+button.icon{
+  background:none;
+  border:none;
   cursor:pointer;
-  flex-shrink:0;
-  margin-left:8px;
+  font-size:16px;
+  margin-left:4px;
 }
 
 /* TEXTAREA */
@@ -100,186 +50,101 @@ body{display:flex;height:100vh;background:var(--mint);overflow:hidden;}
   padding:8px;
   line-height:1.4;
   font-family:monospace;
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      transparent,
-      transparent 22px,
-      var(--line) 23px
-    );
+  background:repeating-linear-gradient(to bottom, transparent, transparent 22px, var(--line) 23px);
   overflow-y:auto;
+}
+
+/* LIST ITEM COMPLETION */
+.completed{
+  text-decoration: line-through;
+  color:rgba(62,47,37,0.6);
 }
 
 /* MOBILE RESPONSIVENESS */
 @media(max-width:768px){
-  .sidebar{
-    width:120px;
-    min-width:100px;
-  }
-  #listTitle{ font-size:13px; }
-  #styleLabel{ font-size:11px; }
-  .sidebar button.newList{ font-size:11px; }
-  #editor{
-    padding:6px;
-    line-height:1.3;
-  }
+  #listTitle{ font-size:14px; }
+  button.icon{ font-size:14px; }
+  #editor{ padding:6px; line-height:1.3; }
 }
 </style>
 </head>
 <body>
 
-<div class="sidebar" id="sidebar">
-  <button class="newList" onclick="newList()">+ List</button>
+<div class="header">
+  <input id="listTitle" value="New List">
+  <div>
+    <button class="icon" onclick="newItem()">➕</button>
+    <button class="icon" onclick="deleteList()">🗑️</button>
+  </div>
 </div>
 
-<div class="main">
-  <div class="header">
-    <input id="listTitle" value="">
-    <span id="styleLabel">•</span>
-  </div>
-  <textarea id="editor"></textarea>
-</div>
+<textarea id="editor"></textarea>
 
 <script>
-let lists = JSON.parse(localStorage.getItem("collections_v032")) || [];
-let activeId = null;
+// Data storage
+let list = {title:"New List", content:[]}; // content array of {text, completed}
 
-// Migration for backward compatibility
-function migrate(list){
-  if(list.pinned === undefined) list.pinned = false;
-  if(!list.listStyle) list.listStyle = "bullet";
-  return list;
-}
-lists = lists.map(migrate);
+// Save/load
+function save(){ localStorage.setItem("collection_v1", JSON.stringify(list)); }
+function load(){ const data=localStorage.getItem("collection_v1"); if(data) list=JSON.parse(data); renderEditor(); }
 
-// Save to localStorage
-function save(){ localStorage.setItem("collections_v032", JSON.stringify(lists)); }
-
-// Sidebar render
-function renderSidebar(){
-  const sidebar=document.getElementById("sidebar");
-  sidebar.innerHTML='<button class="newList" onclick="newList()">+ List</button>';
-
-  const sorted=[...lists].sort((a,b)=>b.pinned-a.pinned);
-
-  sorted.forEach(list=>{
-    const div=document.createElement("div");
-    div.className="list-item";
-    if(list.id===activeId) div.classList.add("active");
-
-    const nameSpan=document.createElement("span");
-    nameSpan.textContent=list.title||"Untitled";
-    nameSpan.onclick=()=>{
-      activeId=list.id;
-      renderSidebar();
-      renderEditor();
-    };
-
-    const delSpan=document.createElement("span");
-    delSpan.className="delete";
-    delSpan.textContent="×";
-    delSpan.onclick=(e)=>{
-      e.stopPropagation();
-      lists=lists.filter(l=>l.id!==list.id);
-      activeId=lists.length?lists[0].id:null;
-      if(!activeId) newList();
-      save();
-      renderSidebar();
-      renderEditor();
-    };
-
-    div.appendChild(nameSpan);
-    div.appendChild(delSpan);
-    sidebar.appendChild(div);
-  });
-}
-
-// Editor render
+// Render editor
 function renderEditor(){
   const editor=document.getElementById("editor");
-  const list=lists.find(l=>l.id===activeId);
-  if(!list) return;
-  editor.value=list.content;
-  document.getElementById("listTitle").value=list.title;
-  updateStyleLabel();
+  editor.value=list.content.map(item=> (item.completed?"[x] ":"- ")+item.text ).join("\n");
 }
 
-// Create new list
-function newList(){
-  const id=Date.now().toString();
-  const newItem={
-    id,
-    title:"New List",
-    content:"",
-    pinned:false,
-    listStyle:"bullet"
-  };
-  lists.push(newItem);
-  activeId=id;
-  save();
-  renderSidebar();
+// Add new item
+function newItem(){
+  list.content.push({text:"", completed:false});
   renderEditor();
+  save();
+  // focus last line
+  const editor=document.getElementById("editor");
+  editor.selectionStart=editor.selectionEnd=editor.value.length;
+  editor.focus();
+}
+
+// Delete list
+function deleteList(){
+  if(confirm("Delete this list?")){ list={title:"New List", content:[]}; renderEditor(); save(); }
 }
 
 // Title edit
-document.getElementById("listTitle").addEventListener("input",function(){
-  const list=lists.find(l=>l.id===activeId);
-  if(!list) return;
-  list.title=this.value||"Untitled";
-  save();
-  renderSidebar();
-});
+document.getElementById("listTitle").addEventListener("input",function(){ list.title=this.value||"New List"; save(); });
 
-// Style label
-function updateStyleLabel(){
-  const list=lists.find(l=>l.id===activeId);
-  document.getElementById("styleLabel").textContent=list.listStyle==="bullet"?"•":"1.";
-}
-document.getElementById("styleLabel").onclick=function(){
-  const list=lists.find(l=>l.id===activeId);
-  if(!list) return;
-  list.listStyle=list.listStyle==="bullet"?"number":"bullet";
-  save();
-  updateStyleLabel();
-};
-
-// Editor input
-document.getElementById("editor").addEventListener("input",function(){
-  const list=lists.find(l=>l.id===activeId);
-  if(!list) return;
-  list.content=this.value;
+// Editor input + completion toggle
+const editor=document.getElementById("editor");
+editor.addEventListener("input",function(){
+  const lines=this.value.split("\n");
+  list.content=lines.map(line=>{
+    let completed=false,text=line;
+    if(line.startsWith("[x] ")){ completed=true; text=line.substring(4); }
+    else if(line.startsWith("- ")) text=line.substring(2);
+    return {text, completed};
+  });
   save();
 });
 
-// Auto bullet / number insertion
-document.getElementById("editor").addEventListener("keydown",function(e){
+editor.addEventListener("keydown",function(e){
   if(e.key==="Enter"){
-    const list=lists.find(l=>l.id===activeId);
-    if(!list) return;
+    // Auto bullet / number
     const start=this.selectionStart;
     const text=this.value.substring(0,start);
     const lines=text.split("\n");
-    const lastLine=lines[lines.length-1];
-    let prefix="";
-    if(list.listStyle==="bullet") prefix="- ";
-    else{
-      const match=lastLine.match(/^(\d+)\./);
-      prefix=(match?parseInt(match[1])+1:1)+". ";
-    }
+    const last=lines[lines.length-1];
+    let prefix="- ";
+    if(/^\d+\./.test(last)) prefix=(parseInt(last)+1)+". ";
     setTimeout(()=>{
       const pos=this.selectionStart;
       this.value=this.value.substring(0,pos)+prefix+this.value.substring(pos);
       this.selectionStart=this.selectionEnd=pos+prefix.length;
-      list.content=this.value;
-      save();
     },0);
   }
 });
 
 // Initialize
-if(lists.length){ activeId=lists[0].id; }
-else{ newList(); }
-renderSidebar();
+load();
 renderEditor();
 </script>
 
